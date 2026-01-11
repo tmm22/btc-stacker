@@ -9,9 +9,5 @@
       "path": "/api/cron",
       "schedule": "0 9 * * *"
     }
-  ],
-  "env": {
-    "ENCRYPTION_KEY": "@encryption-key",
-    "CRON_SECRET": "@cron-secret"
-  }
+  ]
 }
