@@ -17,19 +17,19 @@ export async function GET(request: NextRequest) {
     const client = createBitarooClient(apiKey);
     const balances = await client.getBalances();
 
-    const audBalance = balances.find((b) => b.asset === "AUD");
-    const btcBalance = balances.find((b) => b.asset === "BTC");
+    const audBalance = balances.find((b) => b.assetSymbol.toLowerCase() === "aud");
+    const btcBalance = balances.find((b) => b.assetSymbol.toLowerCase() === "btc");
 
     return NextResponse.json({
       aud: {
         available: parseFloat(audBalance?.available || "0"),
         locked: parseFloat(audBalance?.locked || "0"),
-        total: parseFloat(audBalance?.total || "0"),
+        total: parseFloat(audBalance?.balance || "0"),
       },
       btc: {
         available: parseFloat(btcBalance?.available || "0"),
         locked: parseFloat(btcBalance?.locked || "0"),
-        total: parseFloat(btcBalance?.total || "0"),
+        total: parseFloat(btcBalance?.balance || "0"),
       },
     });
   } catch (error) {

@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const balances = await client.getBalances();
-    const audBalance = balances.find((b) => b.asset === "AUD");
+    const audBalance = balances.find((b) => b.assetSymbol.toLowerCase() === "aud");
     const availableAUD = parseFloat(audBalance?.available || "0");
 
     if (availableAUD < result.amountAUD) {

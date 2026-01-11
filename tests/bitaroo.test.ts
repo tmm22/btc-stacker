@@ -135,7 +135,7 @@ describe("Bitaroo API Client", () => {
       }
     });
 
-    test("returns false on failed balance fetch", async () => {
+    test("throws on failed balance fetch", async () => {
       const client = createBitarooClient("test.key");
 
       const originalFetch = global.fetch;
@@ -147,8 +147,7 @@ describe("Bitaroo API Client", () => {
       );
 
       try {
-        const result = await client.testConnection();
-        expect(result).toBe(false);
+        await expect(client.testConnection()).rejects.toThrow();
       } finally {
         global.fetch = originalFetch;
       }
@@ -158,8 +157,8 @@ describe("Bitaroo API Client", () => {
   describe("getBalance", () => {
     test("returns specific asset balance", async () => {
       const mockBalances = [
-        { asset: "AUD", available: "1000.00", locked: "0", total: "1000.00" },
-        { asset: "BTC", available: "0.5", locked: "0.1", total: "0.6" },
+        { assetSymbol: "aud", available: "1000.00", locked: "0", balance: "1000.00" },
+        { assetSymbol: "btc", available: "0.5", locked: "0.1", balance: "0.6" },
       ];
 
       const client = createBitarooClient("test.key");
@@ -177,7 +176,7 @@ describe("Bitaroo API Client", () => {
         const btcBalance = await client.getBalance("BTC");
 
         expect(audBalance?.available).toBe("1000.00");
-        expect(btcBalance?.total).toBe("0.6");
+        expect(btcBalance?.balance).toBe("0.6");
       } finally {
         global.fetch = originalFetch;
       }

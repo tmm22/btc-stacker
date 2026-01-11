@@ -1,10 +1,10 @@
 const BITAROO_API_BASE = "https://api.bitaroo.com.au/v1";
 
 export interface BitarooBalance {
-  asset: string;
+  assetSymbol: string;
   available: string;
   locked: string;
-  total: string;
+  balance: string;
 }
 
 export interface BitarooOrderbook {
@@ -81,7 +81,7 @@ class BitarooClient {
 
   async getBalance(asset: "AUD" | "BTC"): Promise<BitarooBalance | null> {
     const balances = await this.getBalances();
-    return balances.find((b) => b.asset === asset) || null;
+    return balances.find((b) => b.assetSymbol.toLowerCase() === asset.toLowerCase()) || null;
   }
 
   async getOrderbook(): Promise<BitarooOrderbook> {
@@ -172,12 +172,8 @@ class BitarooClient {
   }
 
   async testConnection(): Promise<boolean> {
-    try {
-      await this.getBalances();
-      return true;
-    } catch {
-      return false;
-    }
+    await this.getBalances();
+    return true;
   }
 }
 
