@@ -8,10 +8,12 @@ BTC Stacker is a Next.js web application for automated Bitcoin accumulation usin
 
 **Key Principle:** This is a buy-only application. It should NEVER sell Bitcoin or withdraw funds.
 
+**Runtime:** Bun (not Node.js/npm)
+
 ## Architecture
 
 ### Frontend (Next.js App Router)
-- `/app` - Pages and API routes using Next.js 14+ App Router
+- `/app` - Pages and API routes using Next.js 16 App Router with Turbopack
 - `/components` - React components (dashboard, UI primitives)
 - Client-side state management via React hooks and localStorage
 
@@ -92,7 +94,7 @@ export function calculateNewStrategy(
 
 1. Update `/convex/schema.ts`
 2. Add/modify functions in corresponding `/convex/*.ts` files
-3. Run `npx convex dev` to sync
+3. Run `bunx convex dev` to sync
 
 ## Environment Variables
 
@@ -126,4 +128,15 @@ Key packages to be aware of:
 
 ## Excluded from TypeScript Build
 
-The `/convex` folder is excluded from the main TypeScript build because it requires Convex-generated types. Run `npx convex dev` to generate these types.
+The `/convex` folder is excluded from the main TypeScript build because it requires Convex-generated types. Run `bunx convex dev` to generate these types.
+
+## Package Management
+
+This project uses **Bun** as the package manager and runtime:
+- Install dependencies: `bun install`
+- Run dev server: `bun dev`
+- Build: `bun run build`
+- Add packages: `bun add <package>`
+- Run Convex: `bunx convex dev`
+
+Do NOT use npm or yarn commands.

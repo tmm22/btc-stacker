@@ -17,13 +17,19 @@ Automated Bitcoin accumulation app for Bitaroo Exchange using proven, backtested
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Install Bun (if not installed)
 
 ```bash
-npm install
+curl -fsSL https://bun.sh/install | bash
 ```
 
-### 2. Configure Environment
+### 2. Install Dependencies
+
+```bash
+bun install
+```
+
+### 3. Configure Environment
 
 Create a `.env.local` file:
 
@@ -38,23 +44,23 @@ NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
 CRON_SECRET=$(openssl rand -hex 16)
 ```
 
-### 3. Set Up Convex Database
+### 4. Set Up Convex Database
 
 ```bash
-npx convex dev
+bunx convex dev
 ```
 
 Follow the prompts to create a new Convex project or link an existing one.
 
-### 4. Run Development Server
+### 5. Run Development Server
 
 ```bash
-npm run dev
+bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
 
-### 5. Connect Bitaroo
+### 6. Connect Bitaroo
 
 1. Log in to [trade.bitaroo.com.au](https://trade.bitaroo.com.au)
 2. Go to Account → API Keys
@@ -175,13 +181,14 @@ For scheduled jobs, add a Vercel Cron in `vercel.json`:
 Build and run:
 
 ```bash
-npm run build
-npm start
+bun run build
+bun start
 ```
 
 ## Tech Stack
 
-- **Framework:** Next.js 14+ (App Router)
+- **Runtime:** Bun
+- **Framework:** Next.js 16 (App Router + Turbopack)
 - **Language:** TypeScript
 - **Database:** Convex
 - **Styling:** Tailwind CSS
