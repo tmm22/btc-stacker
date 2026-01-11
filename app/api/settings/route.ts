@@ -4,8 +4,8 @@ import { createBitarooClient } from "@/lib/bitaroo";
 import { z } from "zod";
 
 const saveApiKeysSchema = z.object({
-  apiKeyId: z.string().min(1),
-  apiSecret: z.string().min(1),
+  apiKeyId: z.string().min(1).transform(s => s.trim()),
+  apiSecret: z.string().min(1).transform(s => s.trim()),
 });
 
 const testConnectionSchema = z.object({
@@ -33,10 +33,20 @@ export async function POST(request: NextRequest) {
       }
 
       if (!isValid) {
+        let userMessage = "Could not connect to Bitaroo API.";
+        
+        if (connectionError.includes("wrong-token")) {
+          userMessage = "Invalid API Key ID or Secret. Please check that you've entered the correct credentials from your Bitaroo account. The Key ID and Secret are case-sensitive.";
+        } else if (connectionError.includes("401") || connectionError.includes("Unauthorized")) {
+          userMessage = "API credentials are not authorized. Please verify your Key ID and Secret.";
+        } else if (connectionError.includes("403") || connectionError.includes("Forbidden")) {
+          userMessage = "API key doesn't have permission to access balances. Please check your API key permissions on Bitaroo.";
+        }
+        
         return NextResponse.json(
           { 
             error: "Invalid API credentials or connection failed",
-            details: connectionError || "Could not connect to Bitaroo API. Please verify your API Key ID and Secret are correct."
+            details: userMessage
           },
           { status: 400 }
         );

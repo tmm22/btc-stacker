@@ -163,8 +163,9 @@ export default function SettingsPage() {
                   type="text"
                   value={apiKeyId}
                   onChange={(e) => setApiKeyId(e.target.value)}
-                  placeholder="Enter your API Key ID"
+                  placeholder="e.g., abc123def456"
                 />
+                <p className="text-xs text-gray-500">The first part before the dot</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="apiSecret">API Secret</Label>
@@ -173,8 +174,9 @@ export default function SettingsPage() {
                   type="password"
                   value={apiSecret}
                   onChange={(e) => setApiSecret(e.target.value)}
-                  placeholder="Enter your API Secret"
+                  placeholder="e.g., xyz789uvw012..."
                 />
+                <p className="text-xs text-gray-500">The second part after the dot (shown only once at creation)</p>
               </div>
               <Button onClick={handleSave} disabled={isLoading} className="w-full">
                 {isLoading ? "Validating..." : "Save & Connect"}
@@ -231,9 +233,14 @@ export default function SettingsPage() {
             <li>Go to Account → API Keys</li>
             <li>Click "Generate New API Key"</li>
             <li>Set appropriate permissions (read + trade)</li>
-            <li>Copy both the Key ID and Secret</li>
-            <li>Paste them in the fields above</li>
+            <li>Copy the full key shown (format: <code className="text-orange-400">KeyID.Secret</code>)</li>
+            <li>Split it at the dot and enter each part above</li>
           </ol>
+          <div className="bg-gray-800 p-3 rounded-lg mt-3">
+            <p className="text-gray-300 mb-1">Example key format:</p>
+            <code className="text-orange-400">abc123def456<span className="text-gray-500">.</span>xyz789uvw012tqr345</code>
+            <p className="text-gray-500 mt-1 text-xs">↑ Key ID | ↑ Secret</p>
+          </div>
           <p className="text-orange-500">
             Important: The API Secret is only shown once. Save it securely!
           </p>
