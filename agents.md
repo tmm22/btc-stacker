@@ -106,6 +106,38 @@ export function calculateNewStrategy(
 
 ## Testing Considerations
 
+### Unit Tests
+
+The project has a comprehensive test suite using Bun's built-in test runner:
+
+```bash
+# Run all tests
+bun test
+
+# Run tests in watch mode
+bun test --watch
+
+# Run specific test file
+bun test tests/dca.test.ts
+```
+
+**Test files in `/tests`:**
+- `dca.test.ts` - DCA calculations and scheduling
+- `value-averaging.test.ts` - Portfolio growth calculations
+- `moving-average.test.ts` - MA strategy and multipliers
+- `rsi.test.ts` - RSI thresholds and conditions
+- `market-data.test.ts` - SMA, RSI, MA calculations
+- `crypto.test.ts` - Encryption/decryption
+- `bitaroo.test.ts` - API client (mocked fetch)
+- `strategies.test.ts` - Strategy orchestrator
+
+**When modifying strategies:**
+1. Run existing tests to ensure no regressions
+2. Add tests for new functionality
+3. Use `mock()` from Bun for mocking fetch calls
+
+### Manual Testing
+
 - The app connects to real Bitaroo API - use small amounts for testing
 - Market data falls back to CoinGecko if no API key provided
 - Strategies can be tested with `dryRun: true` parameter
