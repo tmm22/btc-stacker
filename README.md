@@ -133,6 +133,7 @@ Uses the Relative Strength Index to identify oversold conditions and increase pu
 │   ├── market-data.ts       # Price & indicator fetching
 │   ├── scheduler.ts         # Cron utilities
 │   └── strategies/          # Strategy implementations
+├── tests/                   # Unit tests (Bun test runner)
 └── public/                  # Static assets
 ```
 
@@ -193,6 +194,38 @@ bun start
 - **Database:** Convex
 - **Styling:** Tailwind CSS
 - **Icons:** Lucide React
+
+## Testing
+
+The project includes a comprehensive test suite using Bun's built-in test runner.
+
+### Run Tests
+
+```bash
+# Run all tests
+bun test
+
+# Run tests in watch mode
+bun test --watch
+
+# Run a specific test file
+bun test tests/dca.test.ts
+```
+
+### Test Coverage
+
+| Test File | Tests | Description |
+|-----------|-------|-------------|
+| `dca.test.ts` | 12 | DCA calculations, date scheduling, cron generation |
+| `value-averaging.test.ts` | 11 | Portfolio math, growth calculations |
+| `moving-average.test.ts` | 13 | MA strategy, tiered multipliers |
+| `rsi.test.ts` | 10 | RSI thresholds, condition detection |
+| `market-data.test.ts` | 13 | SMA, RSI, 200-day MA calculations |
+| `crypto.test.ts` | 16 | Encryption round-trips, tampering detection |
+| `bitaroo.test.ts` | 8 | API client with mocked fetch |
+| `strategies.test.ts` | 8 | Strategy orchestrator, combinations |
+
+**Total:** 91 tests, 154 assertions
 
 ## Disclaimer
 
