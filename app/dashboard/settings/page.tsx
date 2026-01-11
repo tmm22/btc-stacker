@@ -45,7 +45,8 @@ export default function SettingsPage() {
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.error || "Failed to save API keys");
+        const errorMsg = result.details || result.error || "Failed to save API keys";
+        throw new Error(errorMsg);
       }
 
       const fullEncryptedKey = `${result.encryptedApiKey}:${result.encryptedApiSecret}`;

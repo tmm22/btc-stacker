@@ -23,17 +23,37 @@ export async function POST(request: NextRequest) {
       const fullApiKey = `${validatedData.apiKeyId}.${validatedData.apiSecret}`;
 
       const client = createBitarooClient(fullApiKey);
-      const isValid = await client.testConnection();
+      
+      let isValid = false;
+      let connectionError = "";
+      try {
+        isValid = await client.testConnection();
+      } catch (connErr) {
+        connectionError = connErr instanceof Error ? connErr.message : "Unknown connection error";
+      }
 
       if (!isValid) {
         return NextResponse.json(
-          { error: "Invalid API credentials" },
+          { 
+            error: "Invalid API credentials or connection failed",
+            details: connectionError || "Could not connect to Bitaroo API. Please verify your API Key ID and Secret are correct."
+          },
           { status: 400 }
         );
       }
 
-      const encryptedApiKey = encrypt(validatedData.apiKeyId);
-      const encryptedApiSecret = encrypt(validatedData.apiSecret);
+      let encryptedApiKey: string;
+      let encryptedApiSecret: string;
+      try {
+        encryptedApiKey = encrypt(validatedData.apiKeyId);
+        encryptedApiSecret = encrypt(validatedData.apiSecret);
+      } catch (encryptErr) {
+        console.error("Encryption error:", encryptErr);
+        return NextResponse.json(
+          { error: "Encryption failed. Server configuration error." },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         success: true,
