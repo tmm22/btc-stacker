@@ -24,14 +24,14 @@ describe("Bitaroo API Client", () => {
           ok: true,
           json: () => Promise.resolve(mockOrderbook),
         } as Response)
-      );
+      ) as unknown as typeof fetch;
 
       try {
         const result = await client.getCurrentPrice();
 
-        expect(result.bid).toBe(100000);
-        expect(result.ask).toBe(100100);
-        expect(result.mid).toBe(100050);
+        expect(result.bid).toBe("100000");
+        expect(result.ask).toBe("100100");
+        expect(result.mid).toBe("100050.00");
       } finally {
         global.fetch = originalFetch;
       }
@@ -51,14 +51,14 @@ describe("Bitaroo API Client", () => {
           ok: true,
           json: () => Promise.resolve(mockOrderbook),
         } as Response)
-      );
+      ) as unknown as typeof fetch;
 
       try {
         const result = await client.getCurrentPrice();
 
-        expect(result.bid).toBe(0);
-        expect(result.ask).toBe(0);
-        expect(result.mid).toBe(0);
+        expect(result.bid).toBe("0");
+        expect(result.ask).toBe("0");
+        expect(result.mid).toBe("0.00");
       } finally {
         global.fetch = originalFetch;
       }
@@ -96,10 +96,10 @@ describe("Bitaroo API Client", () => {
           ok: false,
           text: () => Promise.resolve("Not found"),
         } as Response);
-      });
+      }) as unknown as typeof fetch;
 
       try {
-        const result = await client.buyWithAUD(100, 1);
+        const result = await client.buyWithAUD("100", 1);
 
         expect(result.orderId).toBe(12345);
         expect(capturedBody).toBeDefined();
@@ -125,7 +125,7 @@ describe("Bitaroo API Client", () => {
           ok: true,
           json: () => Promise.resolve([]),
         } as Response)
-      );
+      ) as unknown as typeof fetch;
 
       try {
         const result = await client.testConnection();
@@ -142,9 +142,10 @@ describe("Bitaroo API Client", () => {
       global.fetch = mock(() =>
         Promise.resolve({
           ok: false,
+          status: 401,
           text: () => Promise.resolve("Unauthorized"),
         } as Response)
-      );
+      ) as unknown as typeof fetch;
 
       try {
         await expect(client.testConnection()).rejects.toThrow();
@@ -157,8 +158,18 @@ describe("Bitaroo API Client", () => {
   describe("getBalance", () => {
     test("returns specific asset balance", async () => {
       const mockBalances = [
-        { assetSymbol: "aud", available: "1000.00", locked: "0", balance: "1000.00" },
-        { assetSymbol: "btc", available: "0.5", locked: "0.1", balance: "0.6" },
+        {
+          assetSymbol: "aud",
+          available: "1000.00",
+          locked: "0",
+          balance: "1000.00",
+        },
+        {
+          assetSymbol: "btc",
+          available: "0.5",
+          locked: "0.1",
+          balance: "0.6",
+        },
       ];
 
       const client = createBitarooClient("test.key");
@@ -169,7 +180,7 @@ describe("Bitaroo API Client", () => {
           ok: true,
           json: () => Promise.resolve(mockBalances),
         } as Response)
-      );
+      ) as unknown as typeof fetch;
 
       try {
         const audBalance = await client.getBalance("AUD");
@@ -191,7 +202,7 @@ describe("Bitaroo API Client", () => {
           ok: true,
           json: () => Promise.resolve([]),
         } as Response)
-      );
+      ) as unknown as typeof fetch;
 
       try {
         const result = await client.getBalance("AUD");

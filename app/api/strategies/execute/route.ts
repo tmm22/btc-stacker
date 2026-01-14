@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createBitarooClient } from "@/lib/bitaroo";
+import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
 import { decrypt } from "@/lib/crypto";
-import { fetchMarketData } from "@/lib/market-data";
-import { executeStrategy, StrategyType, StrategyConfig } from "@/lib/strategies";
+import { fetchMarketData, MarketDataError } from "@/lib/market-data";
+import {
+  executeStrategy,
+  StrategyType,
+  StrategyConfig,
+} from "@/lib/strategies";
 import { z } from "zod";
+
+const DEFAULT_SLIPPAGE_PERCENT = 1;
 
 const executeStrategySchema = z.object({
   strategyType: z.enum(["dca", "value_averaging", "moving_average", "rsi"]),
@@ -24,15 +30,31 @@ const executeStrategySchema = z.object({
   dryRun: z.boolean().optional().default(false),
 });
 
+function getErrorResponse(error: unknown): { message: string; status: number } {
+  if (error instanceof BitarooApiError) {
+    return {
+      message: error.message,
+      status: error.statusCode ?? 500,
+    };
+  }
+  if (error instanceof MarketDataError) {
+    return {
+      message: error.message,
+      status: error.statusCode ?? 500,
+    };
+  }
+  return {
+    message: "An unexpected error occurred",
+    status: 500,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const encryptedApiKey = request.headers.get("X-Encrypted-Api-Key");
 
     if (!encryptedApiKey) {
-      return NextResponse.json(
-        { error: "API key required" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "API key required" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -69,19 +91,35 @@ export async function POST(request: NextRequest) {
     }
 
     const balances = await client.getBalances();
-    const audBalance = balances.find((b) => b.assetSymbol.toLowerCase() === "aud");
+    const audBalance = balances.find(
+      (b) => b.assetSymbol.toLowerCase() === "aud"
+    );
     const availableAUD = parseFloat(audBalance?.available || "0");
 
-    if (availableAUD < result.amountAUD) {
-      return NextResponse.json({
-        success: false,
-        executed: false,
-        result,
-        error: `Insufficient balance. Available: $${availableAUD.toFixed(2)}, Required: $${result.amountAUD.toFixed(2)}`,
-      }, { status: 400 });
+    if (!isFinite(availableAUD)) {
+      return NextResponse.json(
+        { error: "Invalid balance data received" },
+        { status: 500 }
+      );
     }
 
-    const order = await client.buyWithAUD(result.amountAUD);
+    if (availableAUD < result.amountAUD) {
+      return NextResponse.json(
+        {
+          success: false,
+          executed: false,
+          result,
+          error: `Insufficient balance. Available: $${availableAUD.toFixed(2)}, Required: $${result.amountAUD.toFixed(2)}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const order = await client.buyWithAUD(String(result.amountAUD));
+
+    const priceWithSlippage =
+      marketData.price * (1 + DEFAULT_SLIPPAGE_PERCENT / 100);
+    const estimatedBTC = result.amountAUD / priceWithSlippage;
 
     return NextResponse.json({
       success: true,
@@ -90,7 +128,7 @@ export async function POST(request: NextRequest) {
       order: {
         orderId: order.orderId,
         amountAUD: result.amountAUD,
-        estimatedBTC: result.amountAUD / marketData.price,
+        estimatedBTC,
       },
     });
   } catch (error) {
@@ -102,9 +140,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("Strategy execution error:", error);
-    return NextResponse.json(
-      { error: "Failed to execute strategy" },
-      { status: 500 }
-    );
+    const { message, status } = getErrorResponse(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

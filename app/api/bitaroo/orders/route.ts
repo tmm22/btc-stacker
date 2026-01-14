@@ -1,22 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createBitarooClient } from "@/lib/bitaroo";
+import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
 import { decrypt } from "@/lib/crypto";
 import { z } from "zod";
 
 const createOrderSchema = z.object({
-  amountAUD: z.number().positive(),
+  amountAUD: z
+    .union([z.string(), z.number()])
+    .transform((val) => String(val))
+    .refine((val) => parseFloat(val) > 0, "Amount must be positive"),
   slippagePercent: z.number().min(0).max(10).optional().default(1),
 });
+
+const cancelOrderSchema = z.object({
+  orderId: z.number().int().positive("Order ID must be a positive integer"),
+});
+
+function getErrorResponse(error: unknown): { message: string; status: number } {
+  if (error instanceof BitarooApiError) {
+    return {
+      message: error.message,
+      status: error.statusCode ?? 500,
+    };
+  }
+  return {
+    message: "An unexpected error occurred",
+    status: 500,
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
     const encryptedApiKey = request.headers.get("X-Encrypted-Api-Key");
 
     if (!encryptedApiKey) {
-      return NextResponse.json(
-        { error: "API key required" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "API key required" }, { status: 401 });
     }
 
     const apiKey = decrypt(encryptedApiKey);
@@ -31,10 +48,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ orders });
   } catch (error) {
     console.error("Orders fetch error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch orders" },
-      { status: 500 }
-    );
+    const { message, status } = getErrorResponse(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -43,10 +58,7 @@ export async function POST(request: NextRequest) {
     const encryptedApiKey = request.headers.get("X-Encrypted-Api-Key");
 
     if (!encryptedApiKey) {
-      return NextResponse.json(
-        { error: "API key required" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "API key required" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -74,10 +86,8 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("Order creation error:", error);
-    return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
-    );
+    const { message, status } = getErrorResponse(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -86,32 +96,28 @@ export async function DELETE(request: NextRequest) {
     const encryptedApiKey = request.headers.get("X-Encrypted-Api-Key");
 
     if (!encryptedApiKey) {
-      return NextResponse.json(
-        { error: "API key required" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "API key required" }, { status: 401 });
     }
 
-    const { orderId } = await request.json();
-
-    if (!orderId) {
-      return NextResponse.json(
-        { error: "Order ID required" },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const validatedData = cancelOrderSchema.parse(body);
 
     const apiKey = decrypt(encryptedApiKey);
     const client = createBitarooClient(apiKey);
 
-    const result = await client.cancelOrder(orderId);
+    const result = await client.cancelOrder(validatedData.orderId);
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid request", details: error.issues },
+        { status: 400 }
+      );
+    }
+
     console.error("Order cancellation error:", error);
-    return NextResponse.json(
-      { error: "Failed to cancel order" },
-      { status: 500 }
-    );
+    const { message, status } = getErrorResponse(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

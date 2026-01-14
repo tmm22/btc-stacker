@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchMarketData } from "@/lib/market-data";
-import { createBitarooClient } from "@/lib/bitaroo";
+import { fetchMarketData, MarketDataError } from "@/lib/market-data";
+import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
 import { decrypt } from "@/lib/crypto";
 
 export async function GET(request: NextRequest) {
@@ -19,8 +19,11 @@ export async function GET(request: NextRequest) {
       try {
         const client = createBitarooClient(apiKey);
         orderbook = await client.getOrderbook();
-      } catch {
-        // Orderbook fetch failed, continue without it
+      } catch (orderbookError) {
+        console.warn(
+          "Orderbook fetch failed (continuing without it):",
+          orderbookError instanceof Error ? orderbookError.message : "Unknown error"
+        );
       }
     }
 
@@ -33,6 +36,21 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Market data fetch error:", error);
+
+    if (error instanceof MarketDataError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode ?? 500 }
+      );
+    }
+
+    if (error instanceof BitarooApiError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode ?? 500 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch market data" },
       { status: 500 }
