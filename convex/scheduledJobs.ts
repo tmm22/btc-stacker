@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
@@ -17,6 +17,14 @@ export const getDue = query({
     const now = Date.now();
     const jobs = await ctx.db.query("scheduledJobs").collect();
     return jobs.filter((job) => job.enabled && job.nextRun <= now);
+  },
+});
+
+export const listDue = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, args) => {
+    const jobs = await ctx.db.query("scheduledJobs").collect();
+    return jobs.filter((job) => job.enabled && job.nextRun <= args.now);
   },
 });
 
@@ -54,5 +62,19 @@ export const remove = mutation({
   args: { id: v.id("scheduledJobs") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
+  },
+});
+
+export const updateInternal = internalMutation({
+  args: {
+    id: v.id("scheduledJobs"),
+    lastRun: v.number(),
+    nextRun: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, {
+      lastRun: args.lastRun,
+      nextRun: args.nextRun,
+    });
   },
 });

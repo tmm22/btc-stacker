@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
@@ -81,5 +81,30 @@ export const updateStatus = mutation({
       Object.entries(updates).filter(([, value]) => value !== undefined)
     );
     await ctx.db.patch(id, filteredUpdates);
+  },
+});
+
+export const createInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    strategyId: v.optional(v.id("strategies")),
+    strategyType: v.string(),
+    amountAUD: v.number(),
+    price: v.number(),
+    btcReceived: v.number(),
+    orderId: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("filled"),
+      v.literal("partial"),
+      v.literal("cancelled"),
+      v.literal("failed")
+    ),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("purchases", {
+      ...args,
+      createdAt: Date.now(),
+    });
   },
 });

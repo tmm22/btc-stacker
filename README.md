@@ -31,7 +31,13 @@ bun install
 
 ### 3. Configure Environment
 
-Create a `.env.local` file:
+Copy the example environment file and fill in your values:
+
+```bash
+cp env.example .env.local
+```
+
+Required environment variables (see `env.example` for details):
 
 ```bash
 # Generate a 64-character hex key for encryption
@@ -41,7 +47,7 @@ ENCRYPTION_KEY=$(openssl rand -hex 32)
 NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
 
 # Secret for cron job authentication
-CRON_SECRET=$(openssl rand -hex 16)
+CRON_SECRET=$(openssl rand -hex 32)
 ```
 
 ### 4. Set Up Convex Database
@@ -118,8 +124,13 @@ Uses the Relative Strength Index to identify oversold conditions and increase pu
 ├── app/
 │   ├── api/                 # API routes
 │   │   ├── bitaroo/         # Bitaroo proxy endpoints
+│   │   │   ├── balance/     # Account balances
+│   │   │   ├── market/      # Market data & indicators
+│   │   │   ├── orders/      # Order management
+│   │   │   └── trades/      # Trade history
 │   │   ├── strategies/      # Strategy execution
 │   │   ├── cron/            # Scheduled job handler
+│   │   ├── health/          # Health check endpoint
 │   │   └── settings/        # API key management
 │   ├── dashboard/           # Dashboard pages
 │   └── page.tsx             # Landing page
@@ -127,6 +138,8 @@ Uses the Relative Strength Index to identify oversold conditions and increase pu
 │   ├── dashboard/           # Dashboard components
 │   └── ui/                  # Base UI components
 ├── convex/                  # Database schema & functions
+│   ├── http.ts              # HTTP router for cron integration
+│   └── ...                  # Queries & mutations
 ├── lib/
 │   ├── bitaroo.ts           # Bitaroo API client
 │   ├── crypto.ts            # Encryption utilities
@@ -134,6 +147,7 @@ Uses the Relative Strength Index to identify oversold conditions and increase pu
 │   ├── scheduler.ts         # Cron utilities
 │   └── strategies/          # Strategy implementations
 ├── tests/                   # Unit tests (Bun test runner)
+├── env.example              # Example environment variables
 └── public/                  # Static assets
 ```
 
@@ -144,9 +158,11 @@ Uses the Relative Strength Index to identify oversold conditions and increase pu
 | `/api/bitaroo/balance` | GET | Fetch AUD/BTC balances |
 | `/api/bitaroo/orders` | GET/POST/DELETE | Manage orders |
 | `/api/bitaroo/market` | GET | Get price and indicators |
+| `/api/bitaroo/trades` | GET | Fetch trade history |
 | `/api/strategies/execute` | POST | Execute a strategy |
 | `/api/cron` | GET | Scheduled job endpoint |
 | `/api/settings` | POST | Save/test API keys |
+| `/api/health` | GET | Health check endpoint |
 
 ## Security
 
@@ -161,10 +177,13 @@ Uses the Relative Strength Index to identify oversold conditions and increase pu
 
 1. Push to GitHub
 2. Import project in Vercel
-3. Add environment variables
+3. Add environment variables in Vercel dashboard:
+   - `ENCRYPTION_KEY` - 64-character hex string (generate with `openssl rand -hex 32`)
+   - `CRON_SECRET` - Secret for cron authentication (generate with `openssl rand -hex 32`)
+   - `NEXT_PUBLIC_CONVEX_URL` - Your Convex deployment URL
 4. Deploy
 
-For scheduled jobs, add a Vercel Cron in `vercel.json`:
+The Vercel cron is pre-configured in `vercel.json` to run daily at 9 AM UTC:
 
 ```json
 {
@@ -176,6 +195,8 @@ For scheduled jobs, add a Vercel Cron in `vercel.json`:
   ]
 }
 ```
+
+Use `/api/health` for uptime monitoring.
 
 ### Self-Hosted
 

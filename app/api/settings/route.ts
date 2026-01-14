@@ -15,8 +15,13 @@ const saveApiKeysSchema = z.object({
 });
 
 const testConnectionSchema = z.object({
-  encryptedApiKey: z.string().min(1),
-});
+  encryptedApiKey: z.string().min(1).optional(),
+  encryptedApiSecret: z.string().min(1).optional(),
+  encryptedFullApiKey: z.string().min(1).optional(),
+}).refine(
+  (data) => data.encryptedFullApiKey || (data.encryptedApiKey && data.encryptedApiSecret),
+  { message: "Either encryptedFullApiKey or both encryptedApiKey and encryptedApiSecret required" }
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,9 +95,11 @@ export async function POST(request: NextRequest) {
 
       let encryptedApiKey: string;
       let encryptedApiSecret: string;
+      let encryptedFullApiKey: string;
       try {
         encryptedApiKey = encrypt(validatedData.apiKeyId);
         encryptedApiSecret = encrypt(validatedData.apiSecret);
+        encryptedFullApiKey = encrypt(fullApiKey);
       } catch (encryptErr) {
         console.error("Encryption error:", encryptErr);
         return NextResponse.json(
@@ -105,6 +112,7 @@ export async function POST(request: NextRequest) {
         success: true,
         encryptedApiKey,
         encryptedApiSecret,
+        encryptedFullApiKey,
         message: "API keys validated and encrypted successfully",
       });
     }
@@ -112,7 +120,14 @@ export async function POST(request: NextRequest) {
     if (action === "test") {
       const validatedData = testConnectionSchema.parse(body);
 
-      const apiKey = decrypt(validatedData.encryptedApiKey);
+      let apiKey: string;
+      if (validatedData.encryptedFullApiKey) {
+        apiKey = decrypt(validatedData.encryptedFullApiKey);
+      } else {
+        const keyId = decrypt(validatedData.encryptedApiKey!);
+        const secret = decrypt(validatedData.encryptedApiSecret!);
+        apiKey = `${keyId}.${secret}`;
+      }
       const client = createBitarooClient(apiKey);
 
       try {
