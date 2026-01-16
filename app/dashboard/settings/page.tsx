@@ -49,8 +49,11 @@ export default function SettingsPage() {
         throw new Error(errorMsg);
       }
 
-      const fullEncryptedKey = `${result.encryptedApiKey}:${result.encryptedApiSecret}`;
-      localStorage.setItem("encryptedApiKey", fullEncryptedKey);
+      const encryptedFullApiKey = result.encryptedFullApiKey;
+      if (!encryptedFullApiKey || typeof encryptedFullApiKey !== "string") {
+        throw new Error("Server did not return encrypted API key");
+      }
+      localStorage.setItem("encryptedApiKey", encryptedFullApiKey);
 
       setIsConnected(true);
       setApiKeyId("");
@@ -80,6 +83,11 @@ export default function SettingsPage() {
       const res = await fetch("/api/bitaroo/balance", {
         headers: { "X-Encrypted-Api-Key": saved },
       });
+
+      const rotated = res.headers.get("X-Encrypted-Api-Key-Rotated");
+      if (rotated) {
+        localStorage.setItem("encryptedApiKey", rotated);
+      }
 
       if (res.ok) {
         setMessage({ type: "success", text: "Connection successful! API keys are valid." });
@@ -231,7 +239,7 @@ export default function SettingsPage() {
           <ol className="list-decimal list-inside space-y-2">
             <li>Log in to your Bitaroo account at trade.bitaroo.com.au</li>
             <li>Go to Account → API Keys</li>
-            <li>Click "Generate New API Key"</li>
+            <li>Click &quot;Generate New API Key&quot;</li>
             <li>Set appropriate permissions (read + trade)</li>
             <li>Copy the full key shown (format: <code className="text-orange-400">KeyID.Secret</code>)</li>
             <li>Split it at the dot and enter each part above</li>

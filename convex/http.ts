@@ -5,6 +5,62 @@ import { internal } from "./_generated/api";
 const http = httpRouter();
 
 http.route({
+  path: "/keys/upsert",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const authHeader = request.headers.get("Authorization");
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await request.json();
+    const { encryptedApiKey, encryptedApiSecret } = body ?? {};
+
+    if (typeof encryptedApiKey !== "string" || typeof encryptedApiSecret !== "string") {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const existing = await ctx.runQuery(internal.users.getFirst, {});
+    if (!existing) {
+      const createdUserId = await ctx.runMutation(internal.users.create, {
+        encryptedApiKey,
+        encryptedApiSecret,
+      });
+      return new Response(JSON.stringify({ success: true, userId: createdUserId }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    await ctx.runMutation(internal.users.updateApiKeys, {
+      id: existing._id,
+      encryptedApiKey,
+      encryptedApiSecret,
+    });
+
+    return new Response(JSON.stringify({ success: true, userId: existing._id }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
   path: "/cron/due-jobs",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
@@ -73,7 +129,7 @@ http.route({
     }
 
     const body = await request.json();
-    const { jobId, strategyId, userId, purchase, nextRun } = body;
+    const { jobId, strategyId, purchase, nextRun } = body;
 
     if (purchase) {
       await ctx.runMutation(internal.purchases.createInternal, purchase);

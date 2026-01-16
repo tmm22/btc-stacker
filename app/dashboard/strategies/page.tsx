@@ -118,6 +118,11 @@ export default function StrategiesPage() {
         }),
       });
 
+      const rotated = res.headers.get("X-Encrypted-Api-Key-Rotated");
+      if (rotated) {
+        localStorage.setItem("encryptedApiKey", rotated);
+      }
+
       const result = await res.json();
 
       if (!res.ok) {

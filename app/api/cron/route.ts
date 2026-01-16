@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
-import { decrypt } from "@/lib/crypto";
+import { rotateCiphertextIfNeeded } from "@/lib/crypto";
 import { fetchMarketData } from "@/lib/market-data";
 import { executeStrategy, StrategyType, StrategyConfig } from "@/lib/strategies";
 import { getNextRunTime } from "@/lib/scheduler";
@@ -88,7 +88,22 @@ async function recordExecution(
   });
 
   if (!response.ok) {
-    console.error("Failed to record execution:", await response.text());
+    console.error("Failed to record execution:", response.status);
+  }
+}
+
+async function upsertEncryptedKeysToConvex(convexUrl: string, cronSecret: string, payload: { encryptedApiKey: string; encryptedApiSecret: string }): Promise<void> {
+  const response = await fetch(`${convexUrl}/keys/upsert`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${cronSecret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    console.error("Failed to rotate stored keys:", response.status);
   }
 }
 
@@ -114,8 +129,10 @@ async function executeJob(job: DueJob): Promise<ExecutionResult> {
   }
 
   try {
-    const keyId = decrypt(user.encryptedApiKey);
-    const secret = decrypt(user.encryptedApiSecret);
+    const keyIdDecrypted = rotateCiphertextIfNeeded(user.encryptedApiKey);
+    const secretDecrypted = rotateCiphertextIfNeeded(user.encryptedApiSecret);
+    const keyId = keyIdDecrypted.plaintext;
+    const secret = secretDecrypted.plaintext;
     const fullApiKey = `${keyId}.${secret}`;
 
     const client = createBitarooClient(fullApiKey);
@@ -228,6 +245,17 @@ export async function GET(request: NextRequest) {
     const results: ExecutionResult[] = [];
 
     for (const dueJob of dueJobs) {
+      if (dueJob.user) {
+        const keyIdRotated = rotateCiphertextIfNeeded(dueJob.user.encryptedApiKey);
+        const secretRotated = rotateCiphertextIfNeeded(dueJob.user.encryptedApiSecret);
+        if (keyIdRotated.rotatedCiphertext || secretRotated.rotatedCiphertext) {
+          await upsertEncryptedKeysToConvex(convexUrl, cronSecret, {
+            encryptedApiKey: keyIdRotated.rotatedCiphertext ?? dueJob.user.encryptedApiKey,
+            encryptedApiSecret: secretRotated.rotatedCiphertext ?? dueJob.user.encryptedApiSecret,
+          });
+        }
+      }
+
       const result = await executeJob(dueJob);
       results.push(result);
 
@@ -262,7 +290,10 @@ export async function GET(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error("Cron execution error:", error);
+    console.error(
+      "Cron execution error:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     return NextResponse.json(
       { error: "Cron execution failed" },
       { status: 500 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
-import { decrypt } from "@/lib/crypto";
+import { decryptApiKeyHeader } from "@/lib/crypto";
 import { fetchMarketData, MarketDataError } from "@/lib/market-data";
 import {
   executeStrategy,
@@ -49,6 +49,14 @@ function getErrorResponse(error: unknown): { message: string; status: number } {
   };
 }
 
+function logApiError(context: string, error: unknown): void {
+  if (error instanceof Error) {
+    console.error(context, error.name, error.message);
+    return;
+  }
+  console.error(context, "Unknown error");
+}
+
 export async function POST(request: NextRequest) {
   try {
     const encryptedApiKey = request.headers.get("X-Encrypted-Api-Key");
@@ -60,7 +68,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = executeStrategySchema.parse(body);
 
-    const apiKey = decrypt(encryptedApiKey);
+    const { apiKey, rotatedCiphertext } = decryptApiKeyHeader(encryptedApiKey);
     const client = createBitarooClient(apiKey);
 
     const marketData = await fetchMarketData(apiKey);
@@ -72,22 +80,32 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.shouldBuy) {
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         executed: false,
         result,
         message: "Strategy determined no purchase needed",
       });
+      if (rotatedCiphertext) {
+        response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+      }
+      response.headers.set("Cache-Control", "no-store");
+      return response;
     }
 
     if (validatedData.dryRun) {
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         executed: false,
         dryRun: true,
         result,
         message: `Dry run: Would buy $${result.amountAUD.toFixed(2)} AUD`,
       });
+      if (rotatedCiphertext) {
+        response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+      }
+      response.headers.set("Cache-Control", "no-store");
+      return response;
     }
 
     const balances = await client.getBalances();
@@ -121,7 +139,7 @@ export async function POST(request: NextRequest) {
       marketData.price * (1 + DEFAULT_SLIPPAGE_PERCENT / 100);
     const estimatedBTC = result.amountAUD / priceWithSlippage;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       executed: true,
       result,
@@ -131,6 +149,11 @@ export async function POST(request: NextRequest) {
         estimatedBTC,
       },
     });
+    if (rotatedCiphertext) {
+      response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+    }
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -139,7 +162,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("Strategy execution error:", error);
+    logApiError("Strategy execution error:", error);
     const { message, status } = getErrorResponse(error);
     return NextResponse.json({ error: message }, { status });
   }

@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMarketData, MarketDataError } from "@/lib/market-data";
 import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
-import { decrypt } from "@/lib/crypto";
+import { decryptApiKeyHeader } from "@/lib/crypto";
+
+function logApiError(context: string, error: unknown): void {
+  if (error instanceof Error) {
+    console.error(context, error.name, error.message);
+    return;
+  }
+  console.error(context, "Unknown error");
+}
 
 export async function GET(request: NextRequest) {
   try {
     const encryptedApiKey = request.headers.get("X-Encrypted-Api-Key");
 
     let apiKey: string | undefined;
+    let rotatedCiphertext: string | undefined;
     if (encryptedApiKey) {
-      apiKey = decrypt(encryptedApiKey);
+      const decrypted = decryptApiKeyHeader(encryptedApiKey);
+      apiKey = decrypted.apiKey;
+      rotatedCiphertext = decrypted.rotatedCiphertext;
     }
 
     const marketData = await fetchMarketData(apiKey);
@@ -27,15 +38,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       price: marketData.price,
       ma200: marketData.ma200,
       rsi14: marketData.rsi14,
       timestamp: marketData.timestamp,
       orderbook,
     });
+    if (rotatedCiphertext) {
+      response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+    }
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (error) {
-    console.error("Market data fetch error:", error);
+    logApiError("Market data fetch error:", error);
 
     if (error instanceof MarketDataError) {
       return NextResponse.json(

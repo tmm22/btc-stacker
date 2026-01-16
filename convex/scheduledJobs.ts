@@ -1,7 +1,7 @@
-import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
+import { internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const list = query({
+export const list = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -11,7 +11,7 @@ export const list = query({
   },
 });
 
-export const getDue = query({
+export const getDue = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
@@ -28,7 +28,7 @@ export const listDue = internalQuery({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     userId: v.id("users"),
     strategyId: v.id("strategies"),
@@ -41,7 +41,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = internalMutation({
   args: {
     id: v.id("scheduledJobs"),
     cronExpression: v.optional(v.string()),
@@ -58,7 +58,7 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = internalMutation({
   args: { id: v.id("scheduledJobs") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);

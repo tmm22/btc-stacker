@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
-import { decrypt } from "@/lib/crypto";
+import { decryptApiKeyHeader } from "@/lib/crypto";
 import { z } from "zod";
 
 const createOrderSchema = z.object({
@@ -28,6 +28,14 @@ function getErrorResponse(error: unknown): { message: string; status: number } {
   };
 }
 
+function logApiError(context: string, error: unknown): void {
+  if (error instanceof Error) {
+    console.error(context, error.name, error.message);
+    return;
+  }
+  console.error(context, "Unknown error");
+}
+
 export async function GET(request: NextRequest) {
   try {
     const encryptedApiKey = request.headers.get("X-Encrypted-Api-Key");
@@ -36,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "API key required" }, { status: 401 });
     }
 
-    const apiKey = decrypt(encryptedApiKey);
+    const { apiKey, rotatedCiphertext } = decryptApiKeyHeader(encryptedApiKey);
     const client = createBitarooClient(apiKey);
 
     const searchParams = request.nextUrl.searchParams;
@@ -45,9 +53,14 @@ export async function GET(request: NextRequest) {
 
     const orders = await client.getOrders({ activeOnly, historyOnly });
 
-    return NextResponse.json({ orders });
+    const response = NextResponse.json({ orders });
+    if (rotatedCiphertext) {
+      response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+    }
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (error) {
-    console.error("Orders fetch error:", error);
+    logApiError("Orders fetch error:", error);
     const { message, status } = getErrorResponse(error);
     return NextResponse.json({ error: message }, { status });
   }
@@ -64,7 +77,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createOrderSchema.parse(body);
 
-    const apiKey = decrypt(encryptedApiKey);
+    const { apiKey, rotatedCiphertext } = decryptApiKeyHeader(encryptedApiKey);
     const client = createBitarooClient(apiKey);
 
     const result = await client.buyWithAUD(
@@ -72,11 +85,16 @@ export async function POST(request: NextRequest) {
       validatedData.slippagePercent
     );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       orderId: result.orderId,
       amountAUD: validatedData.amountAUD,
     });
+    if (rotatedCiphertext) {
+      response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+    }
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -85,7 +103,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("Order creation error:", error);
+    logApiError("Order creation error:", error);
     const { message, status } = getErrorResponse(error);
     return NextResponse.json({ error: message }, { status });
   }
@@ -102,12 +120,17 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json();
     const validatedData = cancelOrderSchema.parse(body);
 
-    const apiKey = decrypt(encryptedApiKey);
+    const { apiKey, rotatedCiphertext } = decryptApiKeyHeader(encryptedApiKey);
     const client = createBitarooClient(apiKey);
 
     const result = await client.cancelOrder(validatedData.orderId);
 
-    return NextResponse.json(result);
+    const response = NextResponse.json(result);
+    if (rotatedCiphertext) {
+      response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+    }
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -116,7 +139,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.error("Order cancellation error:", error);
+    logApiError("Order cancellation error:", error);
     const { message, status } = getErrorResponse(error);
     return NextResponse.json({ error: message }, { status });
   }

@@ -1,11 +1,22 @@
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { encrypt, decrypt, generateEncryptionKey } from "../lib/crypto";
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import { encrypt, decrypt, generateEncryptionKey, rotateCiphertextIfNeeded } from "../lib/crypto";
 
 describe("Encryption Utilities", () => {
   const originalEnv = process.env.ENCRYPTION_KEY;
+  const originalKeys = process.env.ENCRYPTION_KEYS;
+  const originalPrimaryId = process.env.ENCRYPTION_PRIMARY_KEY_ID;
+  const baselineKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
   beforeAll(() => {
-    process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    process.env.ENCRYPTION_KEY = baselineKey;
+    delete process.env.ENCRYPTION_KEYS;
+    delete process.env.ENCRYPTION_PRIMARY_KEY_ID;
+  });
+
+  beforeEach(() => {
+    process.env.ENCRYPTION_KEY = baselineKey;
+    delete process.env.ENCRYPTION_KEYS;
+    delete process.env.ENCRYPTION_PRIMARY_KEY_ID;
   });
 
   afterAll(() => {
@@ -13,6 +24,16 @@ describe("Encryption Utilities", () => {
       process.env.ENCRYPTION_KEY = originalEnv;
     } else {
       delete process.env.ENCRYPTION_KEY;
+    }
+    if (originalKeys) {
+      process.env.ENCRYPTION_KEYS = originalKeys;
+    } else {
+      delete process.env.ENCRYPTION_KEYS;
+    }
+    if (originalPrimaryId) {
+      process.env.ENCRYPTION_PRIMARY_KEY_ID = originalPrimaryId;
+    } else {
+      delete process.env.ENCRYPTION_PRIMARY_KEY_ID;
     }
   });
 
@@ -73,13 +94,14 @@ describe("Encryption Utilities", () => {
       expect(encrypted1).not.toBe(encrypted2);
     });
 
-    test("encrypted format has three parts", () => {
+    test("encrypted format has five parts", () => {
       const encrypted = encrypt("test");
       const parts = encrypted.split(":");
 
-      expect(parts.length).toBe(3);
-      expect(parts[0].length).toBe(32);
+      expect(parts.length).toBe(5);
+      expect(parts[0]).toBe("v1");
       expect(parts[2].length).toBe(32);
+      expect(parts[4].length).toBe(32);
     });
   });
 
@@ -109,10 +131,73 @@ describe("Encryption Utilities", () => {
     test("throws on tampered auth tag", () => {
       const encrypted = encrypt("test");
       const parts = encrypted.split(":");
-      parts[2] = "00" + parts[2].slice(2);
+      parts[4] = "00" + parts[4].slice(2);
       const tampered = parts.join(":");
 
       expect(() => decrypt(tampered)).toThrow();
+    });
+  });
+
+  describe("legacy ciphertext compatibility", () => {
+    test("round-trips legacy format using legacy key", () => {
+      const plaintext = "legacy-format";
+      const legacyKey = process.env.ENCRYPTION_KEY!;
+      delete process.env.ENCRYPTION_KEYS;
+      delete process.env.ENCRYPTION_PRIMARY_KEY_ID;
+      process.env.ENCRYPTION_KEY = legacyKey;
+
+      const encrypted = encrypt(plaintext);
+      expect(decrypt(encrypted)).toBe(plaintext);
+    });
+  });
+
+  describe("key rotation", () => {
+    test("rotates ciphertext when primary key changes", () => {
+      const legacyKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+      const newPrimary = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
+
+      process.env.ENCRYPTION_KEYS = JSON.stringify({
+        legacy: legacyKey,
+        new: newPrimary,
+      });
+      process.env.ENCRYPTION_PRIMARY_KEY_ID = "new";
+      delete process.env.ENCRYPTION_KEY;
+
+      const plaintext = "rotate-me";
+      const encrypted = encrypt(plaintext);
+      expect(encrypted.split(":")[1]).toBe("new");
+      expect(decrypt(encrypted)).toBe(plaintext);
+    });
+
+    test("rotateCiphertextIfNeeded returns rotated ciphertext for legacy", () => {
+      const legacyKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+      const newPrimary = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
+
+      process.env.ENCRYPTION_KEYS = JSON.stringify({
+        legacy: legacyKey,
+        new: newPrimary,
+      });
+      process.env.ENCRYPTION_PRIMARY_KEY_ID = "new";
+      delete process.env.ENCRYPTION_KEY;
+
+      // Build a legacy ciphertext by temporarily making legacy the only key
+      delete process.env.ENCRYPTION_KEYS;
+      delete process.env.ENCRYPTION_PRIMARY_KEY_ID;
+      process.env.ENCRYPTION_KEY = legacyKey;
+      const legacyCipher = encrypt("hello");
+
+      process.env.ENCRYPTION_KEYS = JSON.stringify({
+        legacy: legacyKey,
+        new: newPrimary,
+      });
+      process.env.ENCRYPTION_PRIMARY_KEY_ID = "new";
+      delete process.env.ENCRYPTION_KEY;
+
+      const rotated = rotateCiphertextIfNeeded(legacyCipher);
+      expect(rotated.plaintext).toBe("hello");
+      expect(rotated.rotatedCiphertext).toBeDefined();
+      expect(rotated.rotatedCiphertext!.split(":")[1]).toBe("new");
+      expect(decrypt(rotated.rotatedCiphertext!)).toBe("hello");
     });
   });
 

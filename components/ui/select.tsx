@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 interface SelectProps {
   value?: string;
   onValueChange?: (value: string) => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   placeholder?: string;
 }
 
@@ -28,9 +28,8 @@ const Select = ({ value, onValueChange, children }: SelectProps) => {
 const SelectTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & { placeholder?: string }
->(({ className, children, placeholder, ...props }, ref) => {
+>(({ className, placeholder, ...props }, ref) => {
   const { value } = React.useContext(SelectContext);
-  const [open, setOpen] = React.useState(false);
 
   return (
     <button
@@ -40,7 +39,6 @@ const SelectTrigger = React.forwardRef<
         "flex h-10 w-full items-center justify-between rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 ring-offset-gray-950 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
-      onClick={() => setOpen(!open)}
       {...props}
     >
       {value || placeholder || "Select..."}

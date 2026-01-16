@@ -3,6 +3,31 @@ import { encrypt, decrypt } from "@/lib/crypto";
 import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
 import { z } from "zod";
 
+async function upsertEncryptedKeysToConvex(params: {
+  encryptedApiKey: string;
+  encryptedApiSecret: string;
+}): Promise<void> {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!convexUrl || !cronSecret) {
+    return;
+  }
+
+  const response = await fetch(`${convexUrl}/keys/upsert`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${cronSecret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    console.error("Failed to persist encrypted keys to Convex:", response.status);
+  }
+}
+
 const saveApiKeysSchema = z.object({
   apiKeyId: z
     .string()
@@ -101,12 +126,17 @@ export async function POST(request: NextRequest) {
         encryptedApiSecret = encrypt(validatedData.apiSecret);
         encryptedFullApiKey = encrypt(fullApiKey);
       } catch (encryptErr) {
-        console.error("Encryption error:", encryptErr);
+        console.error(
+          "Encryption error:",
+          encryptErr instanceof Error ? encryptErr.message : "Unknown error"
+        );
         return NextResponse.json(
           { error: "Encryption failed. Server configuration error." },
           { status: 500 }
         );
       }
+
+      await upsertEncryptedKeysToConvex({ encryptedApiKey, encryptedApiSecret });
 
       return NextResponse.json({
         success: true,
@@ -157,7 +187,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("Settings error:", error);
+    console.error(
+      "Settings error:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     return NextResponse.json(
       { error: "Settings operation failed" },
       { status: 500 }

@@ -20,7 +20,7 @@ interface Balances {
 
 export default function DashboardPage() {
   const [marketData, setMarketData] = useState<MarketData | null>(null);
-  const [balances, setBalances] = useState<Balances | null>(null);
+  const [balances] = useState<Balances | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [purchases, setPurchases] = useState<Array<{
@@ -69,6 +69,11 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({ amountAUD }),
       });
+
+      const rotated = res.headers.get("X-Encrypted-Api-Key-Rotated");
+      if (rotated) {
+        localStorage.setItem("encryptedApiKey", rotated);
+      }
 
       if (!res.ok) {
         throw new Error("Order failed");

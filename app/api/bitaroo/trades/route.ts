@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBitarooClient, BitarooApiError } from "@/lib/bitaroo";
-import { decrypt } from "@/lib/crypto";
+import { decryptApiKeyHeader } from "@/lib/crypto";
+
+function logApiError(context: string, error: unknown): void {
+  if (error instanceof Error) {
+    console.error(context, error.name, error.message);
+    return;
+  }
+  console.error(context, "Unknown error");
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,13 +18,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "API key required" }, { status: 401 });
     }
 
-    const apiKey = decrypt(encryptedApiKey);
+    const { apiKey, rotatedCiphertext } = decryptApiKeyHeader(encryptedApiKey);
     const client = createBitarooClient(apiKey);
     const trades = await client.getTrades();
 
-    return NextResponse.json({ trades });
+    const response = NextResponse.json({ trades });
+    if (rotatedCiphertext) {
+      response.headers.set("X-Encrypted-Api-Key-Rotated", rotatedCiphertext);
+    }
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (error) {
-    console.error("Trades fetch error:", error);
+    logApiError("Trades fetch error:", error);
 
     if (error instanceof BitarooApiError) {
       return NextResponse.json(
