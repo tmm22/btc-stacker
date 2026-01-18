@@ -7,7 +7,7 @@ async function upsertEncryptedKeysToConvex(params: {
   encryptedApiKey: string;
   encryptedApiSecret: string;
 }): Promise<void> {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  const convexUrl = process.env.CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
   const cronSecret = process.env.CRON_SECRET;
 
   if (!convexUrl || !cronSecret) {

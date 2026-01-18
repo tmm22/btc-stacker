@@ -20,7 +20,7 @@ const OrderbookSchema = z.object({
 });
 
 const OrderSchema = z.object({
-  orderId: z.number(),
+  orderId: z.union([z.number(), z.string()]).transform((val) => Number(val)),
   orderType: z.enum(["market", "limit"]),
   side: z.enum(["buy", "sell"]),
   price: z.string(),
@@ -34,7 +34,7 @@ const OrdersResponseSchema = z.array(OrderSchema);
 
 const TradeSchema = z.object({
   tradeId: z.number(),
-  orderId: z.number(),
+  orderId: z.union([z.number(), z.string()]).transform((val) => Number(val)),
   price: z.string(),
   amount: z.string(),
   fee: z.string(),
@@ -45,7 +45,7 @@ const TradeSchema = z.object({
 const TradesResponseSchema = z.array(TradeSchema);
 
 const CreateOrderResponseSchema = z.object({
-  orderId: z.number(),
+  orderId: z.union([z.number(), z.string()]).transform((val) => Number(val)),
 });
 
 const CancelOrderResponseSchema = z.object({
@@ -268,7 +268,10 @@ class BitarooClient {
 
     const bidNum = parseFloat(bestBid);
     const askNum = parseFloat(bestAsk);
-    const midNum = (bidNum + askNum) / 2;
+    const midNum =
+      isFinite(bidNum) && isFinite(askNum) && bidNum > 0 && askNum > 0
+        ? (bidNum + askNum) / 2
+        : 0;
 
     return {
       bid: bestBid,

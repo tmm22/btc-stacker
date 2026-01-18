@@ -7,6 +7,8 @@ import { getNextRunTime } from "@/lib/scheduler";
 
 const DEFAULT_SLIPPAGE_PERCENT = 1;
 
+export const maxDuration = 60;
+
 interface DueJob {
   job: {
     _id: string;
@@ -220,10 +222,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  const convexUrl = process.env.CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
 
   if (!convexUrl) {
-    console.error("NEXT_PUBLIC_CONVEX_URL environment variable is not configured");
+    console.error("CONVEX_URL environment variable is not configured");
     return NextResponse.json(
       { error: "Server configuration error" },
       { status: 500 }

@@ -88,7 +88,7 @@ describe("Bitaroo API Client", () => {
           capturedBody = options.body as string;
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ orderId: 12345 }),
+            json: () => Promise.resolve({ orderId: "12345" }),
           } as Response);
         }
 
