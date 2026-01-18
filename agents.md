@@ -101,7 +101,8 @@ export function calculateNewStrategy(
 | Variable | Purpose | Required |
 |----------|---------|----------|
 | `ENCRYPTION_KEY` | 64-char hex for AES-256 encryption | Yes |
-| `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL | Yes |
+| `CONVEX_URL` | Convex deployment URL (server-side) | Yes |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL (client-side) | Yes |
 | `CRON_SECRET` | Auth for cron endpoint | For scheduled jobs |
 
 ## Testing Considerations

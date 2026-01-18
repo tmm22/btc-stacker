@@ -44,6 +44,9 @@ Required environment variables (see `env.example` for details):
 ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 # Convex database URL (get from convex.dev)
+CONVEX_URL=https://your-project.convex.cloud
+
+# Convex database URL (client-side)
 NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
 
 # Secret for cron job authentication
@@ -180,7 +183,8 @@ Uses the Relative Strength Index to identify oversold conditions and increase pu
 3. Add environment variables in Vercel dashboard:
    - `ENCRYPTION_KEY` - 64-character hex string (generate with `openssl rand -hex 32`)
    - `CRON_SECRET` - Secret for cron authentication (generate with `openssl rand -hex 32`)
-   - `NEXT_PUBLIC_CONVEX_URL` - Your Convex deployment URL
+   - `CONVEX_URL` - Your Convex deployment URL (server-side)
+   - `NEXT_PUBLIC_CONVEX_URL` - Your Convex deployment URL (client-side)
 4. Deploy
 
 The Vercel cron is pre-configured in `vercel.json` to run daily at 9 AM UTC:
